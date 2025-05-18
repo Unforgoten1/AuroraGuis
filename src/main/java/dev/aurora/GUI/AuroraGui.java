@@ -1,12 +1,16 @@
 package dev.aurora.GUI;
 
 import dev.aurora.Manager.GuiManager;
+import dev.aurora.Struct.Animation.API.IAnimation;
+import dev.aurora.Struct.Animation.Animation;
+import dev.aurora.Struct.Animation.MultiSlotAnimation;
 import dev.aurora.Struct.BorderType;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.scheduler.BukkitTask;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -25,6 +29,19 @@ public class AuroraGui {
     private List<ItemStack> paginatedItems;
     private Map<Integer, Consumer<InventoryClickEvent>> paginatedActions;
     private int itemsPerPage;
+    private final Map<Integer, IAnimation> animations;
+    private final Map<Integer, BukkitTask> animationTasks;
+    private final List<PendingAnimation> pendingAnimations;
+
+    private static class PendingAnimation {
+        final int slot;
+        final IAnimation animation;
+
+        PendingAnimation(int slot, IAnimation animation) {
+            this.slot = slot;
+            this.animation = animation;
+        }
+    }
 
     public AuroraGui(String name) {
         this.name = name;
@@ -34,7 +51,10 @@ public class AuroraGui {
         this.paginatedItems = new ArrayList<>();
         this.paginatedActions = new HashMap<>();
         this.currentPage = 0;
-        this.itemsPerPage = 7; // Default for 3-row GUI with FULL border
+        this.itemsPerPage = 7;
+        this.animations = new HashMap<>();
+        this.animationTasks = new HashMap<>();
+        this.pendingAnimations = new ArrayList<>();
     }
 
     public AuroraGui title(String title) {
@@ -45,7 +65,7 @@ public class AuroraGui {
     public AuroraGui rows(int rows) {
         if (rows < 1 || rows > 6) throw new IllegalArgumentException("Rows must be 1-6");
         this.rows = rows;
-        this.itemsPerPage = (rows - 2) * 7; // Adjust based on usable slots
+        this.itemsPerPage = (rows - 2) * 7;
         return this;
     }
 
@@ -116,6 +136,10 @@ public class AuroraGui {
         clickActions.clear();
         paginatedItems.clear();
         paginatedActions.clear();
+        animations.clear();
+        animationTasks.values().forEach(BukkitTask::cancel);
+        animationTasks.clear();
+        pendingAnimations.clear();
         if (preserveBorder && borderItems != null) {
             for (int i = 0; i < borderItems.length; i++) {
                 if (borderItems[i] != null) inventory.setItem(i, borderItems[i]);
@@ -130,6 +154,11 @@ public class AuroraGui {
             inventory.setItem(slot, item);
             clickActions.remove(slot);
             if (clickAction != null) clickActions.put(slot, clickAction);
+            animations.remove(slot);
+            if (animationTasks.containsKey(slot)) {
+                animationTasks.get(slot).cancel();
+                animationTasks.remove(slot);
+            }
         }
         return this;
     }
@@ -160,6 +189,80 @@ public class AuroraGui {
         return this;
     }
 
+    public AuroraGui addAnimation(int slot, Animation animation) {
+        return addCustomAnimation(slot, animation);
+    }
+
+    public AuroraGui addCustomAnimation(int slot, IAnimation animation) {
+        if (slot < 0 || slot >= rows * 9 || animation == null) return this;
+        pendingAnimations.add(new PendingAnimation(slot, animation));
+        return this;
+    }
+
+    private void scheduleAnimation(int slot, IAnimation animation) {
+        if (manager == null) {
+            throw new IllegalStateException("Cannot schedule animation: GuiManager not set");
+        }
+        animations.put(slot, animation);
+        animation.init();
+
+        if (animation instanceof MultiSlotAnimation) {
+            MultiSlotAnimation multiAnim = (MultiSlotAnimation) animation;
+            BukkitTask task = Bukkit.getScheduler().runTaskTimer(manager.getPlugin(), () -> {
+                if (!animations.containsKey(slot) || !animationTasks.containsKey(slot)) return;
+
+                Map<Integer, MultiSlotAnimation.AnimationSlot> frame = multiAnim.getNextFrame();
+                // Clear all slots from previous frame
+                for (int s : ((MultiSlotAnimation) animation).getNextFrame().keySet()) {
+                    inventory.setItem(s, null);
+                    clickActions.remove(s);
+                }
+                // Set new items and actions
+                for (Map.Entry<Integer, MultiSlotAnimation.AnimationSlot> entry : frame.entrySet()) {
+                    int s = entry.getKey();
+                    MultiSlotAnimation.AnimationSlot animSlot = entry.getValue();
+                    if (animSlot.getItem() != null) {
+                        inventory.setItem(s, animSlot.getItem());
+                    }
+                    if (animSlot.getClickAction() != null) {
+                        clickActions.put(s, animSlot.getClickAction());
+                    }
+                }
+
+                if (!multiAnim.shouldContinue()) {
+                    animations.remove(slot);
+                    animationTasks.get(slot).cancel();
+                    animationTasks.remove(slot);
+                }
+            }, 0L, multiAnim.getDuration());
+            animationTasks.put(slot, task);
+        } else {
+            BukkitTask task = Bukkit.getScheduler().runTaskTimer(manager.getPlugin(), () -> {
+                if (!animations.containsKey(slot) || !animationTasks.containsKey(slot)) return;
+
+                IAnimation anim = animations.get(slot);
+                ItemStack item = anim.getNextItem();
+                Consumer<InventoryClickEvent> action = anim.getClickAction();
+
+                if (item != null) {
+                    inventory.setItem(slot, item);
+                }
+                if (action != null) {
+                    clickActions.put(slot, action);
+                } else {
+                    clickActions.remove(slot);
+                }
+
+                if (!anim.shouldContinue()) {
+                    animations.remove(slot);
+                    animationTasks.get(slot).cancel();
+                    animationTasks.remove(slot);
+                }
+            }, 0L, animation.getDuration());
+            animationTasks.put(slot, task);
+        }
+    }
+
     private void updatePage() {
         int[] contentSlots = new int[itemsPerPage];
         int startSlot = 10;
@@ -169,6 +272,11 @@ public class AuroraGui {
         for (int slot : contentSlots) {
             inventory.setItem(slot, null);
             clickActions.remove(slot);
+            animations.remove(slot);
+            if (animationTasks.containsKey(slot)) {
+                animationTasks.get(slot).cancel();
+                animationTasks.remove(slot);
+            }
         }
 
         int startIndex = currentPage * itemsPerPage;
@@ -188,8 +296,12 @@ public class AuroraGui {
     }
 
     public AuroraGui register(GuiManager manager) {
-        if (manager == null) throw new IllegalStateException("GuiManager not set");
+        if (manager == null) throw new IllegalArgumentException("GuiManager not set");
         manager.registerGui(this);
+        for (PendingAnimation pending : new ArrayList<>(pendingAnimations)) {
+            scheduleAnimation(pending.slot, pending.animation);
+        }
+        pendingAnimations.clear();
         return this;
     }
 

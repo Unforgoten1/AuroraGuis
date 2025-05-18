@@ -14,10 +14,12 @@ import java.util.Map;
 import java.util.UUID;
 
 public class GuiManager implements Listener {
+    private final JavaPlugin plugin;
     private final Map<String, AuroraGui> guis;
     private final Map<UUID, AuroraGui> activeGuis;
 
     public GuiManager(JavaPlugin plugin) {
+        this.plugin = plugin;
         this.guis = new HashMap<>();
         this.activeGuis = new HashMap<>();
         Bukkit.getPluginManager().registerEvents(this, plugin);
@@ -36,6 +38,10 @@ public class GuiManager implements Listener {
     public void openGui(Player player, String guiName) {
         AuroraGui gui = guis.get(guiName);
         if (gui != null) openGui(player, gui);
+    }
+
+    public JavaPlugin getPlugin() {
+        return plugin;
     }
 
     @EventHandler
