@@ -1,12 +1,29 @@
 package dev.aurora.Utilities.Strings;
 
+import dev.aurora.Compatibility.ServerVersion;
 import org.bukkit.ChatColor;
 import org.bukkit.entity.Player;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
+/**
+ * Color utility with cross-version support
+ * Supports legacy colors (1.8+) and hex colors (1.16+)
+ */
 public class ColorUtils {
+    // Cache for colored strings to improve performance
+    private static final Map<String, String> colorCache = new ConcurrentHashMap<>(256);
+    private static final int MAX_CACHE_SIZE = 1000;
+
+    // Hex color pattern for 1.16+
+    private static final Pattern HEX_PATTERN = Pattern.compile("&#([A-Fa-f0-9]{6})");
+    private static final Pattern HEX_PATTERN_ALT = Pattern.compile("#([A-Fa-f0-9]{6})");
+    private static final boolean SUPPORTS_HEX = ServerVersion.getInstance().hasHexColors();
     public static String toNiceString(String string) {
         string = ChatColor.stripColor(string).replace('_', ' ').toLowerCase();
         StringBuilder sb = new StringBuilder();
@@ -65,7 +82,86 @@ public class ColorUtils {
         return input.toString();
     }
     public static String color (String string){
-        return ChatColor.translateAlternateColorCodes('&', string);
+        if (string == null || string.isEmpty()) {
+            return string;
+        }
+
+        // Check cache first
+        String cached = colorCache.get(string);
+        if (cached != null) {
+            return cached;
+        }
+
+        String result = string;
+
+        // Process hex colors if supported (1.16+)
+        if (SUPPORTS_HEX) {
+            result = translateHexColorCodes(result);
+        }
+
+        // Process legacy color codes
+        result = ChatColor.translateAlternateColorCodes('&', result);
+
+        // Limit cache size to prevent memory issues
+        if (colorCache.size() < MAX_CACHE_SIZE) {
+            colorCache.put(string, result);
+        }
+
+        return result;
+    }
+
+    /**
+     * Translate hex color codes for 1.16+
+     * Supports formats: &#RRGGBB or #RRGGBB
+     */
+    private static String translateHexColorCodes(String message) {
+        // Handle &#RRGGBB format
+        Matcher matcher = HEX_PATTERN.matcher(message);
+        StringBuffer buffer = new StringBuffer(message.length() + 4 * 8);
+
+        while (matcher.find()) {
+            String group = matcher.group(1);
+            matcher.appendReplacement(buffer, ChatColor.COLOR_CHAR + "x"
+                + ChatColor.COLOR_CHAR + group.charAt(0)
+                + ChatColor.COLOR_CHAR + group.charAt(1)
+                + ChatColor.COLOR_CHAR + group.charAt(2)
+                + ChatColor.COLOR_CHAR + group.charAt(3)
+                + ChatColor.COLOR_CHAR + group.charAt(4)
+                + ChatColor.COLOR_CHAR + group.charAt(5));
+        }
+
+        message = matcher.appendTail(buffer).toString();
+
+        // Handle #RRGGBB format (without &)
+        matcher = HEX_PATTERN_ALT.matcher(message);
+        buffer = new StringBuffer(message.length() + 4 * 8);
+
+        while (matcher.find()) {
+            String group = matcher.group(1);
+            matcher.appendReplacement(buffer, ChatColor.COLOR_CHAR + "x"
+                + ChatColor.COLOR_CHAR + group.charAt(0)
+                + ChatColor.COLOR_CHAR + group.charAt(1)
+                + ChatColor.COLOR_CHAR + group.charAt(2)
+                + ChatColor.COLOR_CHAR + group.charAt(3)
+                + ChatColor.COLOR_CHAR + group.charAt(4)
+                + ChatColor.COLOR_CHAR + group.charAt(5));
+        }
+
+        return matcher.appendTail(buffer).toString();
+    }
+
+    /**
+     * Clear the color cache
+     */
+    public static void clearCache() {
+        colorCache.clear();
+    }
+
+    /**
+     * Check if server supports hex colors
+     */
+    public static boolean supportsHexColors() {
+        return SUPPORTS_HEX;
     }
 
     public static String color (String string, Object ...arguments){
