@@ -15,7 +15,7 @@ public class PulsingBorder implements IAnimation {
     private final int[] brightnessLevels = {0, 4, 8, 12, 8, 4}; // Data values for brightness
 
     public PulsingBorder() {
-        this.glass = new ItemBuilder(Material.STAINED_GLASS_PANE);
+        this.glass = new ItemBuilder(Material.GRAY_STAINED_GLASS_PANE);
         this.brightness = 0;
     }
 

@@ -5,5 +5,6 @@ public enum BorderType {
     LEFT,
     RIGHT,
     BOTTOM,
-    FULL
+    FULL,
+    CORNERS
 }

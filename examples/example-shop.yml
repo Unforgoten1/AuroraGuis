@@ -1,0 +1,148 @@
+# Example YAML GUI Configuration
+# This file demonstrates the YAML GUI loader capabilities
+
+gui:
+  # GUI identifier (unique name)
+  name: "shop"
+
+  # GUI title (supports color codes with &)
+  title: "&6&lServer Shop"
+
+  # Number of rows (1-6)
+  rows: 6
+
+  # Border configuration (optional)
+  border:
+    material: "GRAY_STAINED_GLASS_PANE"
+    name: " "
+
+  # Items in the GUI
+  items:
+    # Weapons section
+    - slot: 10
+      material: "DIAMOND_SWORD"
+      name: "&b&lWeapons"
+      lore:
+        - "&7Click to browse weapons"
+        - "&7"
+        - "&ePrice: &a$500"
+      glow: true
+      action: "open_gui:weapons"
+
+    # Armor section
+    - slot: 12
+      material: "DIAMOND_CHESTPLATE"
+      name: "&9&lArmor"
+      lore:
+        - "&7Click to browse armor"
+        - "&7"
+        - "&ePrice: &a$1000"
+      glow: true
+      action: "open_gui:armor"
+
+    # Tools section
+    - slot: 14
+      material: "DIAMOND_PICKAXE"
+      name: "&a&lTools"
+      lore:
+        - "&7Click to browse tools"
+        - "&7"
+        - "&ePrice: &a$750"
+      action: "open_gui:tools"
+
+    # Food section
+    - slot: 16
+      material: "COOKED_BEEF"
+      name: "&6&lFood"
+      lore:
+        - "&7Click to browse food items"
+        - "&7"
+        - "&ePrice: &a$100"
+      action: "open_gui:food"
+
+    # Quick buy items
+    - slot: 28
+      material: "GOLDEN_APPLE"
+      name: "&eGolden Apple"
+      lore:
+        - "&7Restores health"
+        - "&7"
+        - "&ePrice: &a$50"
+      action: "command:shop buy golden_apple"
+
+    - slot: 29
+      material: "ENDER_PEARL"
+      name: "&dEnder Pearl"
+      lore:
+        - "&7Quick escape item"
+        - "&7"
+        - "&ePrice: &a$75"
+      action: "command:shop buy ender_pearl"
+
+    - slot: 30
+      material: "ARROW"
+      name: "&fArrows &7(x16)"
+      amount: 16
+      lore:
+        - "&7Standard arrows"
+        - "&7"
+        - "&ePrice: &a$10"
+      action: "command:shop buy arrows 16"
+
+    # Special enchanted item
+    - slot: 31
+      material: "ENCHANTED_BOOK"
+      name: "&5&lEnchantment Book"
+      enchantments:
+        PROTECTION_ENVIRONMENTAL: 4
+        DURABILITY: 3
+      lore:
+        - "&7Contains rare enchantments"
+        - "&7"
+        - "&ePrice: &a$2000"
+      glow: true
+      action: "command:shop buy enchanted_book"
+
+    # Player balance display
+    - slot: 40
+      material: "EMERALD"
+      name: "&a&lYour Balance"
+      lore:
+        - "&7Current: &e$0"
+        - "&7"
+        - "&7Click to view transactions"
+      action: "command:balance"
+
+    # Info item
+    - slot: 45
+      material: "PAPER"
+      name: "&b&lShop Info"
+      lore:
+        - "&7Welcome to the server shop!"
+        - "&7"
+        - "&7Purchase items using your"
+        - "&7in-game currency."
+        - "&7"
+        - "&7Earn money by:"
+        - "&8• &7Mining ores"
+        - "&8• &7Completing quests"
+        - "&8• &7Selling items"
+      action: "none"
+
+    # Close button
+    - slot: 49
+      material: "BARRIER"
+      name: "&c&lClose Shop"
+      lore:
+        - "&7Click to close"
+      action: "close"
+
+    # Admin panel (for players with permission)
+    - slot: 53
+      material: "COMMAND_BLOCK"
+      name: "&c&lAdmin Panel"
+      lore:
+        - "&7Manage shop settings"
+        - "&7"
+        - "&cRequires admin permission"
+      action: "console_command:shop admin {player}"
